@@ -6,11 +6,11 @@ const fs = require('fs');
 
 // Instructions
 
-const HLT  = 0b00000001; // Halt CPU
+const HLT = 0b00000001; // Halt CPU
 // !!! IMPLEMENT ME
-// LDI
-// MUL
-// PRN
+const LDI = 0b10011001;
+const MUL = 0b10101010;
+const PRN = 0b01000011;
 
 /**
  * Class for simulating a simple Computer (CPU & memory)
@@ -40,9 +40,9 @@ class CPU {
 
         bt[HLT] = this.HLT;
         // !!! IMPLEMENT ME
-        // LDI
-        // MUL
-        // PRN
+        bt[LDI] = this.LDI;
+        bt[MUL] = this.MUL;
+        bt[PRN] = this.PRN;
 
 		this.branchTable = bt;
 	}
