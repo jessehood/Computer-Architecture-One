@@ -28,7 +28,7 @@ function processFile(content, cpu, onComplete) {
         // Convert from binary string to numeric value
         const lineAsNum = parseInt(line, 2);
         // Store in the CPU with the .poke() function
-        cpu.poke(lineAsNum);
+        cpu.poke(currAddr, lineAsNum);
         // And on to the next one
         curAddr++;
     }
