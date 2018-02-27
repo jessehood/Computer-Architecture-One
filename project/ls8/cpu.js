@@ -99,29 +99,30 @@ class CPU {
     // Based on the value in the Instruction Register, locate the
     // appropriate hander in the branchTable
     let handler = this.branchTable[this.reg.IR];
-
     // Check that the handler is defined, halt if not (invalid
     // instruction)
     if (!handler) {
       console.error('Unknown opcode', this.reg.IR);
-      stopClock();
+      this.stopClock();
       return;
     }
 
     // Read OperandA and OperandB
-    let operandA = this.mem.read(this.reg.PC + 1);
-    let operandB = this.mem.read(this.reg.PC + 2);
+    let operandA = this.ram.read(this.reg.PC + 1);
+    let operandB = this.ram.read(this.reg.PC + 2);
 
     // We need to use call() so we can set the "this" value inside
     // the handler (otherwise it will be undefined in the handler)
     handler.call(this, operandA, operandB);
 
     // Increment the PC register to go to the next instruction
-    this.reg.PC += (this.reg.IR >> 6) & 0b00000011;
+    this.reg.PC += ((this.reg.IR >> 6) & 0b00000011) + 1;
   }
 
   // INSTRUCTION HANDLER CODE:
-
+  ADD(regA, regB) {
+    this.alu('ADD', regA, regB);
+  }
   /**
    * HLT
    */
