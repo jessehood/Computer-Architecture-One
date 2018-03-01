@@ -11,6 +11,10 @@ const ADD = 0b10101000;
 const LDI = 0b10011001;
 const MUL = 0b10101010;
 const PRN = 0b01000011;
+const PUSH = 0b01001101; 
+const POP  = 0b01001100;
+
+const SP = 0x07; // Stack pointer
 
 /**
  * Class for simulating a simple Computer (CPU & memory)
@@ -42,7 +46,8 @@ class CPU {
     bt[LDI] = this.LDI;
     bt[MUL] = this.MUL;
     bt[PRN] = this.PRN;
-
+    bt[PUSH] = this.PUSH;
+    bt[POP] = this.POP;
     this.branchTable = bt;
   }
 
@@ -84,6 +89,9 @@ class CPU {
       case 'ADD':
         this.reg[regA] = this.reg[regA] + this.reg[regB];
         break;
+      case 'AND':
+        this.reg[regA] = this.reg[regA] & this.reg[regB];
+        break;
     }
   }
 
@@ -113,10 +121,14 @@ class CPU {
 
     // We need to use call() so we can set the "this" value inside
     // the handler (otherwise it will be undefined in the handler)
-    handler.call(this, operandA, operandB);
+    let nextPc = handler.call(this, operandA, operandB);
 
-    // Increment the PC register to go to the next instruction
-    this.reg.PC += ((this.reg.IR >> 6) & 0b00000011) + 1;
+    if (nextPc === undefined) {
+      // Increment the PC register to go to the next instruction
+      this.reg.PC += ((this.reg.IR >> 6) & 0b00000011) + 1;
+    } else {
+      this.reg.PC = nextPC;
+    }
   }
 
   // INSTRUCTION HANDLER CODE:
@@ -149,6 +161,40 @@ class CPU {
    */
   PRN(regA) {
     console.log(this.reg[regA]);
+  }
+
+  pushHelper(value) {
+    this.reg[SP]--;
+    this.ram.write(this.reg[SP], value);
+  }
+
+  popHelper() {
+    let val = this.ram.read(this.reg[SP]);
+    this.reg[SP]++;
+
+    return val;
+  }
+
+  PUSH(regNum) {
+    let value = this.reg[regNum];
+    this.pushHelper(value);
+  }
+
+  POP(regNum) {
+    let val = this.popHelper();
+    this.reg[regNum] = val;
+  }
+
+  CALL(regNum) {
+    // Push next address on stack
+    this.pushHelper(this.reg.PC + 2);
+
+    // Set PC to value in regNum
+    return this.reg[regNum];
+  }
+
+  CMP(regA, regB) {
+
   }
 }
 
