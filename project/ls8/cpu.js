@@ -6,13 +6,17 @@ const fs = require("fs");
 
 // Instructions
 
-const HLT = 0b00000001; // Halt CPU
-const ADD = 0b10101000;
-const LDI = 0b10011001;
-const MUL = 0b10101010;
-const PRN = 0b01000011;
+const HLT =  0b00000001; // Halt CPU
+const ADD =  0b10101000;
+const LDI =  0b10011001;
+const MUL =  0b10101010;
+const PRN =  0b01000011;
 const PUSH = 0b01001101; 
 const POP  = 0b01001100;
+const CMP =  0b10100000;
+const JEQ  = 0b01010001;
+const JMP  = 0b01010000;
+const JNE  = 0b01010010;
 
 const SP = 0x07; // Stack pointer
 
@@ -45,13 +49,17 @@ class CPU {
   setupBranchTable() {
     let bt = {};
 
-    bt[HLT] = this.HLT;
-    bt[ADD] = this.ADD;
-    bt[LDI] = this.LDI;
-    bt[MUL] = this.MUL;
-    bt[PRN] = this.PRN;
+    bt[ADD]  = this.ADD;
+    bt[CMP]  = this.CMP;
+    bt[HLT]  = this.HLT;
+    bt[JEQ]  = this.JEQ;
+    bt[JMP]  = this.JMP;
+    bt[JNE]  = this.JNE;
+    bt[LDI]  = this.LDI;
+    bt[MUL]  = this.MUL;
+    bt[POP]  = this.POP;
+    bt[PRN]  = this.PRN;
     bt[PUSH] = this.PUSH;
-    bt[POP] = this.POP;
     this.branchTable = bt;
   }
 
@@ -81,12 +89,15 @@ class CPU {
   }
 
   setFlag(flag, value) {
-    let numValue = ( value ? 1 : 0 );
     if (value) {
       this.reg.FL = this.reg.FL | flag;
     } else {
       this.reg.FL = this.reg.FL & (~flag);
     }
+  }
+
+  getFlag(f) {
+    return (this.reg.FL & (1 << f)) >> f;
   }
 
   /**
@@ -106,7 +117,9 @@ class CPU {
         this.reg[regA] = this.reg[regA] & this.reg[regB];
         break;
       case 'CMP':
-        this.setFlag(FL_EQ, this.reg[regA] == this.reg[regB]);
+        this.setFlag(FL_EQ, this.reg[regA] === this.reg[regB]);
+        this.setFlag(FL_GT, this.reg[regA] > this.reg[regB]);
+        this.setFlag(FL_LT, this.reg[regA] < this.reg[regB]);
         break;
     }
   }
@@ -118,7 +131,7 @@ class CPU {
     // Load the instruction register (IR) from the current PC
     this.reg.IR = this.ram.read(this.reg.PC);
     // Debugging output
-    //console.log(`${this.reg.PC}: ${this.reg.IR.toString(2)}`);
+    // console.log(`${this.reg.PC}: ${this.reg.IR.toString(2)}`);
 
     // Based on the value in the Instruction Register, locate the
     // appropriate hander in the branchTable
@@ -130,32 +143,57 @@ class CPU {
       this.stopClock();
       return;
     }
-
+    
     // Read OperandA and OperandB
     let operandA = this.ram.read(this.reg.PC + 1);
     let operandB = this.ram.read(this.reg.PC + 2);
-
+    
     // We need to use call() so we can set the "this" value inside
     // the handler (otherwise it will be undefined in the handler)
     let nextPc = handler.call(this, operandA, operandB);
-
-    if (nextPc === undefined) {
+    if (nextPc == undefined) {
       // Increment the PC register to go to the next instruction
       this.reg.PC += ((this.reg.IR >> 6) & 0b00000011) + 1;
     } else {
       this.reg.PC = nextPC;
     }
   }
-
+  
   // INSTRUCTION HANDLER CODE:
   ADD(regA, regB) {
     this.alu('ADD', regA, regB);
   }
+  
+  CALL(regNum) {
+    // Push next address on stack
+    this.pushHelper(this.reg.PC + 2);
+
+    // Set PC to value in regNum
+    return this.reg[regNum];
+  }
+
+
+  CMP(regA, regB) {
+    this.alu('CMP', regA, regB);
+  }
+
   /**
    * HLT
    */
   HLT() {
     this.stopClock();
+  }
+
+  JEQ(regNum) {
+    if (this.getFlag(FL_EQ)) return this.reg[regNum];
+  }
+
+  JMP(regNum) {
+    return this.reg[regNum];
+  }
+
+  JNE(regNum) {
+    if (!this.getFlag(FL_EQ)) return this.reg[regNum]; 
   }
 
   /**
@@ -171,19 +209,7 @@ class CPU {
   MUL(regA, regB) {
     this.alu("MUL", regA, regB);
   }
-
-  /**
-   * PRN R
-   */
-  PRN(regA) {
-    console.log(this.reg[regA]);
-  }
-
-  pushHelper(value) {
-    this.reg[SP]--;
-    this.ram.write(this.reg[SP], value);
-  }
-
+  
   popHelper() {
     let val = this.ram.read(this.reg[SP]);
     this.reg[SP]++;
@@ -191,26 +217,27 @@ class CPU {
     return val;
   }
 
-  PUSH(regNum) {
-    let value = this.reg[regNum];
-    this.pushHelper(value);
-  }
-
   POP(regNum) {
     let val = this.popHelper();
     this.reg[regNum] = val;
   }
 
-  CALL(regNum) {
-    // Push next address on stack
-    this.pushHelper(this.reg.PC + 2);
 
-    // Set PC to value in regNum
-    return this.reg[regNum];
+  /**
+   * PRN R
+   */
+  PRN(regA) {
+    console.log(this.reg[regA]);
+  }
+  
+  pushHelper(value) {
+    this.reg[SP]--;
+    this.ram.write(this.reg[SP], value);
   }
 
-  CMP(regA, regB) {
-    this.alu('CMP', regA, regB);
+  PUSH(regNum) {
+    let value = this.reg[regNum];
+    this.pushHelper(value);
   }
 }
 
