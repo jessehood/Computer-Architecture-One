@@ -16,6 +16,10 @@ const POP  = 0b01001100;
 
 const SP = 0x07; // Stack pointer
 
+const FL_EQ = 0b00000001;
+const FL_GT = 0b00000010;
+const FL_LT = 0b00000100;
+
 /**
  * Class for simulating a simple Computer (CPU & memory)
  */
@@ -31,7 +35,7 @@ class CPU {
     // Special-purpose registers
     this.reg.PC = 0; // Program Counter
     this.reg.IR = 0; // Instruction Register
-
+    this.reg.FL = 0; // Flag register
     this.setupBranchTable();
   }
 
@@ -76,6 +80,15 @@ class CPU {
     clearInterval(this.clock);
   }
 
+  setFlag(flag, value) {
+    let numValue = ( value ? 1 : 0 );
+    if (value) {
+      this.reg.FL = this.reg.FL | flag;
+    } else {
+      this.reg.FL = this.reg.FL & (~flag);
+    }
+  }
+
   /**
    * ALU functionality
    *
@@ -91,6 +104,9 @@ class CPU {
         break;
       case 'AND':
         this.reg[regA] = this.reg[regA] & this.reg[regB];
+        break;
+      case 'CMP':
+        this.setFlag(FL_EQ, this.reg[regA] == this.reg[regB]);
         break;
     }
   }
@@ -194,7 +210,7 @@ class CPU {
   }
 
   CMP(regA, regB) {
-
+    this.alu('CMP', regA, regB);
   }
 }
 
